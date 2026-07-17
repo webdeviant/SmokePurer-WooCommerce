@@ -346,6 +346,14 @@ class SPS_Catalogue_Importer {
 	/* Upserts (WooCommerce CRUD)                                             */
 	/* --------------------------------------------------------------------- */
 
+	/**
+	 * Whether to write a field this run. Always true for a brand-new product;
+	 * for an existing one, governed by the per-field "keep updating" settings.
+	 */
+	private static function keep( $field, $is_new ) {
+		return $is_new || SPS_Settings::update_existing( $field );
+	}
+
 	private static function upsert_simple( $g ) {
 		$existing_id = wc_get_product_id_by_sku( $g['sku'] );
 		$is_new      = ! $existing_id;
@@ -364,19 +372,29 @@ class SPS_Catalogue_Importer {
 		}
 
 		$product->set_sku( $g['sku'] );
-		$product->set_name( $g['name'] );
-		if ( '' !== trim( (string) $g['description'] ) ) {
+		if ( self::keep( 'name', $is_new ) ) {
+			$product->set_name( $g['name'] );
+		}
+		if ( self::keep( 'description', $is_new ) && '' !== trim( (string) $g['description'] ) ) {
 			$product->set_description( wp_kses_post( $g['description'] ) );
 		}
 
-		self::apply_prices( $product, $g['trade_price'], $g['trade_sale'] );
-		self::apply_category( $product, $g['category'] );
-		self::apply_weight( $product, $g['weight_g'] );
+		if ( self::keep( 'price', $is_new ) ) {
+			self::apply_prices( $product, $g['trade_price'], $g['trade_sale'] );
+		}
+		if ( self::keep( 'category', $is_new ) ) {
+			self::apply_category( $product, $g['category'] );
+		}
+		if ( self::keep( 'weight', $is_new ) ) {
+			self::apply_weight( $product, $g['weight_g'] );
+		}
 
-		$owned = array();
-		self::maybe_add_brand_attribute( $owned, $g['brand'] );
-		if ( $owned ) {
-			self::set_owned_attributes( $product, $owned );
+		if ( self::keep( 'brand', $is_new ) ) {
+			$owned = array();
+			self::maybe_add_brand_attribute( $owned, $g['brand'] );
+			if ( $owned ) {
+				self::set_owned_attributes( $product, $owned );
+			}
 		}
 
 		if ( $is_new ) {
@@ -387,10 +405,14 @@ class SPS_Catalogue_Importer {
 		$product->update_meta_data( '_sps_managed', 'yes' );
 		$product_id = $product->save();
 
-		self::apply_brand_taxonomy( $product_id, $g['brand'] );
-		self::apply_tags( $product_id, $g['tag'] );
+		if ( self::keep( 'brand', $is_new ) ) {
+			self::apply_brand_taxonomy( $product_id, $g['brand'] );
+		}
+		if ( self::keep( 'tags', $is_new ) ) {
+			self::apply_tags( $product_id, $g['tag'] );
+		}
 
-		if ( '' !== trim( (string) $g['image_url'] ) && SPS_Images::ensure_featured( $product, $g['image_url'] ) ) {
+		if ( self::keep( 'image', $is_new ) && '' !== trim( (string) $g['image_url'] ) && SPS_Images::ensure_featured( $product, $g['image_url'] ) ) {
 			$product->save();
 		}
 
@@ -418,13 +440,18 @@ class SPS_Catalogue_Importer {
 		}
 
 		$parent->set_sku( $g['parent_sku'] );
-		$parent->set_name( $g['parent_name'] );
-		if ( '' !== trim( (string) $g['description'] ) ) {
+		if ( self::keep( 'name', $is_new ) ) {
+			$parent->set_name( $g['parent_name'] );
+		}
+		if ( self::keep( 'description', $is_new ) && '' !== trim( (string) $g['description'] ) ) {
 			$parent->set_description( wp_kses_post( $g['description'] ) );
 		}
-		self::apply_category( $parent, $g['category'] );
+		if ( self::keep( 'category', $is_new ) ) {
+			self::apply_category( $parent, $g['category'] );
+		}
 
-		// Variation attribute built from the distinct child "Variation" labels.
+		// Variation attribute built from the distinct child "Variation" labels
+		// (structural - always kept in sync so variations resolve correctly).
 		$labels = array();
 		foreach ( $g['children'] as $child ) {
 			$label = $child['variation'];
@@ -436,7 +463,9 @@ class SPS_Catalogue_Importer {
 
 		$owned = array();
 		$owned[ sanitize_title( $attr_label ) ] = self::custom_attribute( $attr_label, $labels, true, true );
-		self::maybe_add_brand_attribute( $owned, $g['brand'] );
+		if ( self::keep( 'brand', $is_new ) ) {
+			self::maybe_add_brand_attribute( $owned, $g['brand'] );
+		}
 		self::set_owned_attributes( $parent, $owned );
 
 		$parent->set_manage_stock( false ); // Variable parents derive stock from variations.
@@ -447,8 +476,12 @@ class SPS_Catalogue_Importer {
 		$parent->update_meta_data( '_sps_managed', 'yes' );
 		$parent_id = $parent->save();
 
-		self::apply_brand_taxonomy( $parent_id, $g['brand'] );
-		self::apply_tags( $parent_id, $g['tag'] );
+		if ( self::keep( 'brand', $is_new ) ) {
+			self::apply_brand_taxonomy( $parent_id, $g['brand'] );
+		}
+		if ( self::keep( 'tags', $is_new ) ) {
+			self::apply_tags( $parent_id, $g['tag'] );
+		}
 
 		// Variations.
 		$attr_key = sanitize_title( $attr_label );
@@ -459,7 +492,9 @@ class SPS_Catalogue_Importer {
 		// The parent has no SKU row of its own in the image feed, so give it a
 		// featured image by reusing the first variation's image (deduped) - else
 		// the variable product shows a placeholder as its main shop image.
-		self::ensure_parent_image( $parent_id, $g['children'] );
+		if ( self::keep( 'image', $is_new ) ) {
+			self::ensure_parent_image( $parent_id, $g['children'] );
+		}
 
 		// Recompute price range / stock status aggregation on the parent.
 		WC_Product_Variable::sync( $parent_id );
@@ -505,8 +540,12 @@ class SPS_Catalogue_Importer {
 		$variation->set_sku( $child['sku'] );
 		$variation->set_attributes( array( $attr_key => $child['variation'] ) );
 
-		self::apply_prices( $variation, $child['trade_price'], $child['trade_sale'] );
-		self::apply_weight( $variation, $child['weight_g'] );
+		if ( self::keep( 'price', $is_new ) ) {
+			self::apply_prices( $variation, $child['trade_price'], $child['trade_sale'] );
+		}
+		if ( self::keep( 'weight', $is_new ) ) {
+			self::apply_weight( $variation, $child['weight_g'] );
+		}
 
 		if ( $is_new ) {
 			self::seed_stock( $variation, $child['seed_qty'], $preorder );
@@ -515,7 +554,7 @@ class SPS_Catalogue_Importer {
 		$variation->update_meta_data( '_sps_managed', 'yes' );
 		$variation_id = $variation->save();
 
-		if ( '' !== trim( (string) $child['image_url'] ) && SPS_Images::ensure_featured( $variation, $child['image_url'] ) ) {
+		if ( self::keep( 'image', $is_new ) && '' !== trim( (string) $child['image_url'] ) && SPS_Images::ensure_featured( $variation, $child['image_url'] ) ) {
 			$variation->save();
 		}
 	}

@@ -51,6 +51,21 @@ class SPS_Settings {
 			'image_retry_backoff_ms'  => 1000,         // Base backoff between retries (doubles each attempt).
 			'assign_categories'       => true,         // false = import products with NO category (left unassigned).
 			'auto_create_categories'  => true,
+
+			// Ongoing updates: what keeps syncing on a product AFTER its first import.
+			// New products always import in full; these govern re-imports of existing
+			// SKUs. Stock is separate (the 5-min job) and always syncs. Default:
+			// keep price/weight/tags fresh, freeze presentational content.
+			'existing_updates'        => array(
+				'price'       => true,
+				'name'        => false,
+				'description' => false,
+				'category'    => false,
+				'weight'      => true,
+				'brand'       => false,
+				'tags'        => true,
+				'image'       => false,
+			),
 			'seed_stock_on_create'    => true,         // Set initial stock from the feed only when first creating a product.
 
 			// Category mapping: feed "Type" value => WooCommerce category name.
@@ -95,6 +110,32 @@ class SPS_Settings {
 		if ( false === get_option( self::OPTION, false ) ) {
 			update_option( self::OPTION, self::defaults(), false );
 		}
+	}
+
+	/**
+	 * Whether a given product field should keep updating on an already-imported
+	 * SKU. New products always import in full; this only governs re-imports.
+	 *
+	 * @param string $field One of: price, name, description, category, weight, brand, tags, image.
+	 * @return bool
+	 */
+	public static function update_existing( $field ) {
+		$map = self::get( 'existing_updates', array() );
+		return is_array( $map ) && ! empty( $map[ $field ] );
+	}
+
+	/** Field keys governed by {@see update_existing()}, in display order. */
+	public static function existing_update_fields() {
+		return array(
+			'price'       => 'Price (regular & sale)',
+			'name'        => 'Name / title',
+			'description' => 'Description',
+			'category'    => 'Categories',
+			'weight'      => 'Weight',
+			'brand'       => 'Brand',
+			'tags'        => 'Tags (Sale / End of Line)',
+			'image'       => 'Product image',
+		);
 	}
 
 	/**

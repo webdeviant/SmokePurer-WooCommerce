@@ -14,6 +14,51 @@ class SPS_Admin {
 		add_action( 'admin_post_sps_save_settings', array( $this, 'handle_save' ) );
 		add_action( 'admin_post_sps_run_now', array( $this, 'handle_run_now' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'assets' ) );
+		add_action( 'admin_notices', array( $this, 'health_notice' ) );
+	}
+
+	/**
+	 * Show a warning in wp-admin if the stock sync has failed or gone stale, so a
+	 * silent stoppage is noticed without opening the dashboard. Purely internal -
+	 * it reads the recorded run status and makes no external calls.
+	 */
+	public function health_notice() {
+		if ( ! current_user_can( 'manage_woocommerce' ) || ! SPS_Settings::get( 'enabled', true ) ) {
+			return;
+		}
+		// Don't duplicate the warning on our own dashboard (it's shown there already).
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( $screen && false !== strpos( (string) $screen->id, 'smokepurer-sync' ) ) {
+			return;
+		}
+
+		$runs = SPS_Logger::get_runs();
+		if ( empty( $runs['stock'] ) ) {
+			return; // Never run yet - don't nag a fresh install.
+		}
+		$run       = $runs['stock'];
+		$interval  = max( 60, (int) SPS_Settings::get( 'stock_interval', 300 ) );
+		$stale_sec = max( 900, ( $interval * 3 ) + 60 );
+		$age       = time() - (int) $run['timestamp'];
+
+		$message = '';
+		if ( 'error' === ( $run['status'] ?? '' ) ) {
+			$message = sprintf( 'The last stock sync failed: %s', (string) ( $run['message'] ?? '' ) );
+		} elseif ( $age > $stale_sec ) {
+			$message = sprintf(
+				'Stock has not synced for %s - the scheduler may have stopped, so stock levels could be out of date.',
+				human_time_diff( (int) $run['timestamp'], time() )
+			);
+		}
+		if ( '' === $message ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-error"><p><strong>SmokePurer Sync:</strong> %s &nbsp;<a href="%s">View status</a></p></div>',
+			esc_html( $message ),
+			esc_url( admin_url( 'admin.php?page=smokepurer-sync' ) )
+		);
 	}
 
 	public function menu() {
@@ -265,6 +310,28 @@ class SPS_Admin {
 				</tr>
 			</table>
 
+			<h2>Ongoing updates</h2>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row">Keep updating on re-imports</th>
+					<td>
+						<p class="description" style="margin-top:0">Newly discovered products always import in full. For products <strong>already imported</strong>, tick what should keep syncing from the feed on later runs.</p>
+						<?php
+						$eu = isset( $s['existing_updates'] ) && is_array( $s['existing_updates'] ) ? $s['existing_updates'] : array();
+						foreach ( SPS_Settings::existing_update_fields() as $key => $label ) {
+							printf(
+								'<label style="display:inline-block;min-width:240px;margin:2px 0"><input type="checkbox" name="sync_%1$s" value="1" %2$s /> %3$s</label>',
+								esc_attr( $key ),
+								checked( ! empty( $eu[ $key ] ), true, false ),
+								esc_html( $label )
+							);
+						}
+						?>
+						<p class="description">Anything unticked is left untouched once a product exists — including your own manual edits. <strong>Stock always syncs</strong> separately via the 5-minute job.</p>
+					</td>
+				</tr>
+			</table>
+
 			<h2>Retirement</h2>
 			<table class="form-table" role="presentation">
 				<tr>
@@ -374,6 +441,7 @@ class SPS_Admin {
 			'image_retry_backoff_ms' => isset( $in['image_retry_backoff_ms'] ) ? min( 30000, max( 0, (int) $in['image_retry_backoff_ms'] ) ) : 1000,
 			'assign_categories'      => ! empty( $in['assign_categories'] ),
 			'auto_create_categories' => ! empty( $in['auto_create_categories'] ),
+			'existing_updates'       => $this->collect_existing_updates( $in ),
 			'category_fallback'      => isset( $in['category_fallback'] ) ? sanitize_text_field( $in['category_fallback'] ) : 'Uncategorised',
 			'category_map'           => isset( $in['category_map'] ) ? $this->text_to_map( $in['category_map'] ) : array(),
 			'retire_action'          => ( isset( $in['retire_action'] ) && 'outofstock' === $in['retire_action'] ) ? 'outofstock' : 'draft',
@@ -424,6 +492,14 @@ class SPS_Admin {
 	/* --------------------------------------------------------------------- */
 	/* Category-map serialisation helpers                                     */
 	/* --------------------------------------------------------------------- */
+
+	private function collect_existing_updates( $in ) {
+		$out = array();
+		foreach ( array_keys( SPS_Settings::existing_update_fields() ) as $key ) {
+			$out[ $key ] = ! empty( $in[ 'sync_' . $key ] );
+		}
+		return $out;
+	}
 
 	private function map_to_text( $map ) {
 		if ( ! is_array( $map ) ) {

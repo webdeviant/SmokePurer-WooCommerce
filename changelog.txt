@@ -9,6 +9,19 @@ Newest versions are listed at the top. Each release follows the same format:
     - Change two.
 
 
+Version 1.0.3
+-------------
+
+- Added per-field "keep updating" options (Settings > Ongoing updates) controlling
+  what continues to sync on a product AFTER its first import: price, name,
+  description, categories, weight, brand, tags and image. New products always import
+  in full; stock always syncs via the 5-minute job. Default keeps price/weight/tags
+  fresh and freezes presentational content so manual edits are preserved.
+- Added an admin warning notice when the stock sync has failed or stopped, so a
+  silent stoppage is noticed without opening the dashboard (internal; no external
+  services).
+
+
 Version 1.0.2
 -------------
 

@@ -68,6 +68,7 @@ It handles:
 | **Images** | Download and attach product images | On |
 | **Image throttle / retries / backoff** | Slows image downloads so the supplier doesn't rate‑limit a big burst | 200 ms · 2 · 1000 ms |
 | **Assign categories** | Off = import products with **no category** (left unassigned) | On |
+| **Ongoing updates** | Per‑field control of what keeps syncing *after* a product's first import (price, name, description, categories, weight, brand, tags, image). New products always import in full; **stock always syncs**. | price · weight · tags on; content frozen |
 | **Category mapping** | Maps the supplier's messy category names to your tidy ones | — |
 | **When a SKU is disabled** | Retire discontinued products to Draft or Out of stock | Draft |
 | **Stock sync / Catalogue / Reconcile** | How often each job runs | 5 min / 1 hr / daily |
@@ -107,6 +108,7 @@ It handles:
 
 See [`changelog.txt`](changelog.txt) for the full history. Latest highlights:
 
+- **1.0.3** — per-field control of what keeps syncing after a product's first import; admin warning if the stock sync stalls.
 - **1.0.2** — option to import without categories; refreshed docs.
 - **1.0.1** — image throttling & backoff; SSRF hardening; PHP 8.3–8.5 verified.
 - **1.0.0** — initial public release.

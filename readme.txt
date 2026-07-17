@@ -5,7 +5,7 @@ Tested up to: 6.8
 Requires PHP: 8.3
 WC requires at least: 8.0
 WC tested up to: 10.9
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 
 Imports the SmokePurer dropship CSV feeds into WooCommerce products and keeps
@@ -70,6 +70,10 @@ Scheduler from a real system cron:
     # wp action-scheduler run   (WP-CLI)  — or — curl the site's wp-cron.php
 
 == Changelog ==
+
+= 1.0.3 =
+* Added per-field "keep updating" options that control what continues to sync on a product AFTER its first import (price, name, description, categories, weight, brand, tags, image). New products always import in full; stock always syncs. Default: price/weight/tags keep syncing, presentational content is frozen so your manual edits are preserved.
+* Added an admin warning notice if the stock sync has failed or stopped running, so a silent stoppage is noticed without opening the dashboard (internal only; no external services).
 
 = 1.0.2 =
 * Added an option to import products without categories (products are left unassigned).
