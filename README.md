@@ -122,6 +122,12 @@ All settings live under **WooCommerce → SmokePurer Sync → Settings**. Everyt
 - **Default:** On
 - **Note:** The first full image import downloads thousands of images and can take a while; images already imported are skipped on later runs. If a few images fail (the supplier's server can throttle a big burst), later runs quietly retry them.
 
+**Image download throttle / retries / backoff**
+- **What it does:** Controls how gently images are downloaded. **Throttle** is a short pause (in milliseconds) before each image download so a big burst doesn't get rate-limited by the supplier's server. **Retries** is how many times a failed download is re-attempted. **Backoff** is the wait (in milliseconds) between retries, which doubles each time.
+- **Defaults:** 200 ms throttle · 2 retries · 1000 ms backoff.
+- **Recommended:** The defaults suit a large one-off import. Set the throttle to `0` to disable it if your supplier doesn't rate-limit. A genuine "not found" (404) is never retried; only timeouts and temporary errors are.
+- **Note:** Higher throttle = gentler on the supplier but a slower import.
+
 **Categories (auto-create)**
 - **What it does:** If a category in your mapping doesn't exist yet, create it automatically.
 - **Default:** On
@@ -298,11 +304,15 @@ WP-Cron only fires on site traffic. For a low-traffic site, set up a real server
 
 ## Changelog
 
+## 1.0.1
+
+- Added image download **throttling and retry with exponential backoff** so a large image import doesn't get rate-limited by the supplier's server.
+- **Security hardening:** feed-supplied image URLs are now validated against internal/loopback/reserved hosts before download (SSRF protection), and the host guard blocks IPv6-literal and numeric-encoded IP bypasses and resolves hostnames.
+- **Compatibility:** verified clean on PHP 8.3, 8.4 and 8.5 (fixed a PHP 8.4+ `fgetcsv()` deprecation).
+
 ## 1.0.0
 
 Initial public release.
-
-*(Future releases will be listed here.)*
 
 ---
 

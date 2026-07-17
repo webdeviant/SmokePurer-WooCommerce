@@ -72,6 +72,14 @@ class SPS_Images {
 			return self::$cache[ $url ];
 		}
 
+		// SSRF guard: image URLs come verbatim from the untrusted feed, so refuse
+		// internal/loopback/reserved hosts before fetching (same guard as feeds).
+		if ( SPS_Feed_Client::is_url_blocked( $url ) ) {
+			SPS_Logger::warning( sprintf( 'Image skipped - refusing a non-public host: %s', $url ) );
+			self::$cache[ $url ] = 0;
+			return 0;
+		}
+
 		// Sideload. Requires the media/file admin includes.
 		if ( ! function_exists( 'media_sideload_image' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/media.php';
@@ -79,15 +87,73 @@ class SPS_Images {
 			require_once ABSPATH . 'wp-admin/includes/image.php';
 		}
 
-		$attachment_id = media_sideload_image( $url, $parent_post_id, null, 'id' );
-		if ( is_wp_error( $attachment_id ) ) {
-			SPS_Logger::warning( sprintf( 'Image sideload failed for %s: %s', $url, $attachment_id->get_error_message() ) );
-			self::$cache[ $url ] = 0;
-			return 0;
+		$attempts   = max( 1, (int) SPS_Settings::get( 'image_retries', 2 ) + 1 );
+		$last_error = '';
+
+		for ( $attempt = 1; $attempt <= $attempts; $attempt++ ) {
+			// Throttle before each download so a large bulk import doesn't hammer
+			// (and get throttled by) the supplier's image server.
+			self::throttle();
+
+			$attachment_id = media_sideload_image( $url, $parent_post_id, null, 'id' );
+
+			if ( ! is_wp_error( $attachment_id ) ) {
+				update_post_meta( $attachment_id, '_sps_source_url', $url );
+				self::$cache[ $url ] = (int) $attachment_id;
+				return (int) $attachment_id;
+			}
+
+			$last_error = $attachment_id->get_error_message();
+
+			// A genuine 404/gone is permanent - retrying only wastes time and load.
+			if ( self::is_permanent_failure( $last_error ) || $attempt >= $attempts ) {
+				break;
+			}
+
+			// Transient failure (timeout, connection reset, 5xx) - back off, retry.
+			self::backoff( $attempt );
 		}
 
-		update_post_meta( $attachment_id, '_sps_source_url', $url );
-		self::$cache[ $url ] = (int) $attachment_id;
-		return (int) $attachment_id;
+		SPS_Logger::warning( sprintf( 'Image sideload failed for %s after %d attempt(s): %s', $url, $attempts, $last_error ) );
+		self::$cache[ $url ] = 0; // Don't retry the same URL again this run; next run will.
+		return 0;
+	}
+
+	/**
+	 * Pause before a download to rate-limit the burst. Configurable; 0 disables it.
+	 */
+	private static function throttle() {
+		$ms = (int) SPS_Settings::get( 'image_throttle_ms', 200 );
+		if ( $ms > 0 ) {
+			usleep( $ms * 1000 );
+		}
+	}
+
+	/**
+	 * Exponential backoff between retry attempts: base, 2x, 4x ... capped at 30s.
+	 *
+	 * @param int $attempt 1-based attempt number that just failed.
+	 */
+	private static function backoff( $attempt ) {
+		$base = (int) SPS_Settings::get( 'image_retry_backoff_ms', 1000 );
+		if ( $base <= 0 ) {
+			return;
+		}
+		$delay = min( 30000, $base * ( 1 << ( $attempt - 1 ) ) );
+		usleep( $delay * 1000 );
+	}
+
+	/**
+	 * Whether a sideload error is permanent (don't retry) versus transient (retry).
+	 * 404 / gone are permanent; timeouts, connection errors and 5xx are transient.
+	 */
+	private static function is_permanent_failure( $message ) {
+		$message = strtolower( (string) $message );
+		foreach ( array( 'not found', ' 404', '404 ', 'http 410', 'gone' ) as $needle ) {
+			if ( false !== strpos( $message, $needle ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

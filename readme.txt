@@ -5,7 +5,7 @@ Tested up to: 6.8
 Requires PHP: 8.3
 WC requires at least: 8.0
 WC tested up to: 10.9
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 
 Imports the SmokePurer dropship CSV feeds into WooCommerce products and keeps
@@ -70,6 +70,11 @@ Scheduler from a real system cron:
     # wp action-scheduler run   (WP-CLI)  — or — curl the site's wp-cron.php
 
 == Changelog ==
+
+= 1.0.1 =
+* Added image download throttling and retry with exponential backoff to avoid supplier rate-limiting during large image imports.
+* Security: feed-supplied image URLs are now validated against internal/loopback/reserved hosts before download (SSRF hardening); the host guard also blocks IPv6-literal and numeric-encoded IP bypasses and resolves hostnames.
+* Compatibility: verified clean on PHP 8.3, 8.4 and 8.5 (fixed a PHP 8.4+ fgetcsv() deprecation).
 
 = 1.0.0 =
 * Initial release.

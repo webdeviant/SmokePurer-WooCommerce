@@ -234,6 +234,17 @@ class SPS_Admin {
 					<td><label><input type="checkbox" name="import_images" value="1" <?php checked( $s['import_images'] ); ?> /> Sideload product images (de-duplicated by source URL).</label></td>
 				</tr>
 				<tr>
+					<th scope="row"><label for="image_throttle_ms">Image download throttle</label></th>
+					<td>
+						<input name="image_throttle_ms" id="image_throttle_ms" type="number" min="0" step="10" value="<?php echo esc_attr( $s['image_throttle_ms'] ); ?>" class="small-text" /> ms pause before each image download
+						&nbsp;·&nbsp;
+						<input name="image_retries" id="image_retries" type="number" min="0" max="10" value="<?php echo esc_attr( $s['image_retries'] ); ?>" class="small-text" /> retries
+						&nbsp;·&nbsp;
+						<input name="image_retry_backoff_ms" id="image_retry_backoff_ms" type="number" min="0" step="100" value="<?php echo esc_attr( $s['image_retry_backoff_ms'] ); ?>" class="small-text" /> ms backoff
+						<p class="description">Slows the image import to avoid the supplier's server rate-limiting a big burst. Failed downloads retry with an exponential backoff; a genuine 404 is not retried. Set throttle to 0 to disable.</p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row">Categories</th>
 					<td><label><input type="checkbox" name="auto_create_categories" value="1" <?php checked( $s['auto_create_categories'] ); ?> /> Auto-create mapped categories that don't exist yet.</label></td>
 				</tr>
@@ -354,6 +365,9 @@ class SPS_Admin {
 			'new_product_status'     => ( isset( $in['new_product_status'] ) && 'publish' === $in['new_product_status'] ) ? 'publish' : 'draft',
 			'attribute_label'        => isset( $in['attribute_label'] ) ? sanitize_text_field( $in['attribute_label'] ) : 'Options',
 			'import_images'          => ! empty( $in['import_images'] ),
+			'image_throttle_ms'      => isset( $in['image_throttle_ms'] ) ? min( 60000, max( 0, (int) $in['image_throttle_ms'] ) ) : 200,
+			'image_retries'          => isset( $in['image_retries'] ) ? min( 10, max( 0, (int) $in['image_retries'] ) ) : 2,
+			'image_retry_backoff_ms' => isset( $in['image_retry_backoff_ms'] ) ? min( 30000, max( 0, (int) $in['image_retry_backoff_ms'] ) ) : 1000,
 			'auto_create_categories' => ! empty( $in['auto_create_categories'] ),
 			'category_fallback'      => isset( $in['category_fallback'] ) ? sanitize_text_field( $in['category_fallback'] ) : 'Uncategorised',
 			'category_map'           => isset( $in['category_map'] ) ? $this->text_to_map( $in['category_map'] ) : array(),

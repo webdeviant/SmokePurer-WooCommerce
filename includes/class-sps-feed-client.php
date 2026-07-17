@@ -28,22 +28,10 @@ class SPS_Feed_Client {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
 
-		// Feed URLs are admin-configured, but refuse an obviously-internal host so
-		// a mistaken/compromised setting can't turn a scheduled job into an SSRF.
-		$host    = wp_parse_url( $url, PHP_URL_HOST );
-		$blocked = ! $host || self::is_blocked_host( $host );
-		/**
-		 * Filter whether a feed host is blocked. Return false to allow a specific
-		 * internal host - e.g. a store that self-hosts its feeds on a private
-		 * address. Default keeps loopback/private IP hosts blocked.
-		 *
-		 * @param bool        $blocked Whether the host is currently blocked.
-		 * @param string|null $host    The parsed host.
-		 * @param string      $url     The full feed URL.
-		 */
-		$blocked = apply_filters( 'sps_block_feed_host', $blocked, $host, $url );
-		if ( $blocked ) {
-			return new WP_Error( 'sps_blocked_host', sprintf( 'Refusing to fetch a feed from a non-public host: %s', $url ) );
+		// Feed URLs are admin-configured, but refuse an internal/loopback host so a
+		// mistaken/compromised feed can't turn a scheduled fetch into an SSRF.
+		if ( self::is_url_blocked( $url ) ) {
+			return new WP_Error( 'sps_blocked_host', sprintf( 'Refusing to fetch from a non-public host: %s', $url ) );
 		}
 
 		$tmp = download_url( $url, $timeout );
@@ -128,19 +116,103 @@ class SPS_Feed_Client {
 	}
 
 	/**
-	 * Block localhost and literal private/reserved IP hosts. (A hostname that
-	 * resolves to a private IP is not caught here - full protection would need
-	 * DNS resolution; this is a cheap guard for a low-risk, admin-only input.)
+	 * Whether a URL should be refused as an SSRF risk. Used for BOTH feed
+	 * downloads and image sideloads (feed-controlled image URLs are untrusted).
+	 *
+	 * @param string $url
+	 * @return bool
+	 */
+	public static function is_url_blocked( $url ) {
+		$host    = wp_parse_url( $url, PHP_URL_HOST );
+		$blocked = ! $host || self::is_blocked_host( $host );
+		/**
+		 * Filter whether a host is blocked. Return false to allow a specific
+		 * internal host - e.g. a store that self-hosts its feeds/images on a
+		 * private address. Default blocks loopback/private/reserved hosts.
+		 *
+		 * @param bool        $blocked Whether the host is currently blocked.
+		 * @param string|null $host    The parsed host.
+		 * @param string      $url     The full URL.
+		 */
+		return (bool) apply_filters( 'sps_block_feed_host', $blocked, $host, $url );
+	}
+
+	/**
+	 * Block loopback, private, reserved, link-local and IP-encoded hosts. Also
+	 * resolves genuine hostnames and blocks any that point at an internal address
+	 * (defence in depth; does not fully prevent DNS rebinding).
 	 */
 	private static function is_blocked_host( $host ) {
-		$host = strtolower( (string) $host );
-		if ( 'localhost' === $host || 'ip6-localhost' === $host || '0.0.0.0' === $host ) {
+		$host = strtolower( trim( (string) $host ) );
+		if ( '' === $host ) {
 			return true;
 		}
+		// Strip IPv6 brackets so "[::1]" validates as an IP.
+		$host = trim( $host, '[]' );
+
+		if ( in_array( $host, array( 'localhost', 'ip6-localhost', 'ip6-loopback', '0.0.0.0' ), true ) ) {
+			return true;
+		}
+
+		// A bare number / hex is an encoded IP (e.g. 2130706433, 0x7f000001);
+		// no legitimate hostname is all-numeric - refuse rather than let the
+		// transport's resolver interpret it as 127.0.0.1.
+		if ( preg_match( '/^(0x[0-9a-f]+|[0-9]+)$/', $host ) ) {
+			return true;
+		}
+
+		// Literal IP (v4 or v6): block private/reserved/loopback/link-local.
 		if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
 			return ! filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
 		}
-		return false;
+
+		// All-numeric-with-dots that isn't a clean dotted-quad (e.g. octal
+		// "0177.0.0.1") - refuse.
+		if ( preg_match( '/^[0-9.]+$/', $host ) ) {
+			return true;
+		}
+
+		// Genuine hostname: block if it resolves to an internal address.
+		return self::resolves_to_blocked_ip( $host );
+	}
+
+	/**
+	 * Resolve a hostname (A + AAAA) and return true if any address is
+	 * private/reserved. Cached per request. Unresolvable hosts are not blocked
+	 * (the fetch simply fails).
+	 */
+	private static function resolves_to_blocked_ip( $host ) {
+		static $cache = array();
+		if ( isset( $cache[ $host ] ) ) {
+			return $cache[ $host ];
+		}
+
+		$ips = array();
+		$v4  = @gethostbynamel( $host );
+		if ( is_array( $v4 ) ) {
+			$ips = $v4;
+		}
+		if ( function_exists( 'dns_get_record' ) ) {
+			$aaaa = @dns_get_record( $host, DNS_AAAA );
+			if ( is_array( $aaaa ) ) {
+				foreach ( $aaaa as $rec ) {
+					if ( ! empty( $rec['ipv6'] ) ) {
+						$ips[] = $rec['ipv6'];
+					}
+				}
+			}
+		}
+
+		$blocked = false;
+		foreach ( $ips as $ip ) {
+			if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+				$blocked = true;
+				break;
+			}
+		}
+
+		$cache[ $host ] = $blocked;
+		return $blocked;
 	}
 
 	private static function first_line( $path ) {

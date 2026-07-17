@@ -31,7 +31,7 @@ class SPS_CSV {
 			return new WP_Error( 'sps_open_failed', 'Could not open CSV: ' . $path );
 		}
 
-		$header = fgetcsv( $fh );
+		$header = fgetcsv( $fh, 0, ',', '"', '' );
 		fclose( $fh );
 
 		if ( ! is_array( $header ) || empty( $header ) ) {
@@ -83,9 +83,9 @@ class SPS_CSV {
 		if ( ! $fh ) {
 			return;
 		}
-		fgetcsv( $fh ); // Discard header row.
+		fgetcsv( $fh, 0, ',', '"', '' ); // Discard header row.
 
-		while ( false !== ( $cols = fgetcsv( $fh ) ) ) {
+		while ( false !== ( $cols = fgetcsv( $fh, 0, ',', '"', '' ) ) ) {
 			// Skip fully blank lines.
 			if ( null === $cols || ( 1 === count( $cols ) && null === $cols[0] ) ) {
 				continue;
@@ -109,8 +109,8 @@ class SPS_CSV {
 			return 0;
 		}
 		$count = 0;
-		fgetcsv( $fh ); // Header.
-		while ( false !== ( $cols = fgetcsv( $fh ) ) ) {
+		fgetcsv( $fh, 0, ',', '"', '' ); // Header.
+		while ( false !== ( $cols = fgetcsv( $fh, 0, ',', '"', '' ) ) ) {
 			if ( null === $cols || ( 1 === count( $cols ) && null === $cols[0] ) ) {
 				continue;
 			}

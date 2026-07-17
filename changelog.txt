@@ -9,6 +9,18 @@ Newest versions are listed at the top. Each release follows the same format:
     - Change two.
 
 
+Version 1.0.1
+-------------
+
+- Added image download throttling and retry with exponential backoff to avoid
+  supplier rate-limiting during large image imports (configurable in Settings).
+- Security hardening: feed-supplied image URLs are validated against internal /
+  loopback / reserved hosts before download (SSRF protection); the host guard now
+  also blocks IPv6-literal and numeric-encoded IP bypasses and resolves hostnames.
+- Compatibility: verified clean on PHP 8.3, 8.4 and 8.5 (fixed a PHP 8.4+
+  fgetcsv() deprecation).
+
+
 Version 1.0.0
 -------------
 
