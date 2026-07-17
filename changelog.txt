@@ -1,0 +1,22 @@
+SmokePurer Sync for WooCommerce — Changelog
+============================================
+
+Newest versions are listed at the top. Each release follows the same format:
+
+    Version X.Y.Z
+
+    - Change one.
+    - Change two.
+
+
+Version 1.0.0
+-------------
+
+- Initial public release.
+- Initial WooCommerce integration.
+- Catalogue import for simple and variable products with automatic markup pricing.
+- Five-minute stock synchronisation from the supplier quantity feed.
+- Pre-order handling, sale-price management, images, brands, categories and weights.
+- Full-snapshot safety checks: feed validation and circuit-breaker.
+- Retirement of discontinued lines from the disabled feed.
+- Production-ready release.

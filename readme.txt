@@ -1,0 +1,75 @@
+=== SmokePurer Sync for WooCommerce ===
+Contributors: e-liquids.uk
+Requires at least: 6.4
+Tested up to: 6.8
+Requires PHP: 8.3
+WC requires at least: 8.0
+WC tested up to: 10.9
+Stable tag: 1.0.0
+License: GPLv2 or later
+
+Imports the SmokePurer dropship CSV feeds into WooCommerce products and keeps
+stock in sync from the 5-minute quantity feed. No external dependencies.
+
+== How it works ==
+
+Three decoupled jobs, all run by WooCommerce's built-in Action Scheduler:
+
+1. Stock sync (default every 5 min)
+   Reads ONLY the SKU,Quantity feed, diffs against the previous pull and writes
+   only the SKUs whose quantity changed, via wc_update_product_stock(). This is
+   what makes a real 5-minute cadence affordable at ~6,000 SKUs. It never touches
+   product data. The 90000 sentinel is mapped to a pre-order (backorder) state.
+
+2. Catalogue import (default hourly)
+   Builds/updates simple and variable products from the descriptions +
+   coming-soon feeds, joined with the weights, images and tags feeds. It runs in
+   small batches (a self-rescheduling Action Scheduler cursor) so it never hits a
+   PHP timeout. It writes product DATA only and never overwrites stock on an
+   existing product (stock is owned by job #1). Trade prices are converted to
+   retail via your markup + rounding rules; a vanished sale price is actively
+   cleared; new products are created as Draft by default for a compliance review.
+
+3. Reconcile (default daily)
+   Retires products listed in the "disabled last 7 days" delta feed (Draft or
+   Out of stock). A safety cap aborts if it would retire an implausible share of
+   the catalogue at once.
+
+== Safety rails ==
+
+* Every full-snapshot feed is validated (HTTP OK, not an HTML error page, SKU
+  header present) before a single row is parsed.
+* A circuit-breaker aborts a run if a feed's row count collapses vs the last good
+  pull, so a truncated download can't zero the catalogue's stock or prices.
+* Columns are matched strictly by header NAME, and the expected header set is
+  asserted up front, so a reordered/renamed feed column fails loudly.
+* CSV parsing is RFC-4180 aware (handles the multi-line HTML in the Description
+  column and strips a UTF-8 BOM).
+
+== Installation ==
+
+1. Zip the `smokepurer-sync` folder and upload via Plugins > Add New > Upload,
+   or copy the folder to wp-content/plugins/. Activate.
+2. Go to WooCommerce > SmokePurer Sync > Settings.
+3. Set your Markup % (IMPORTANT — 0% imports at cost), rounding, and category
+   mapping. Confirm the feed URLs.
+4. Decide your WooCommerce Tax setting ("Prices entered with tax") — the markup
+   result is interpreted according to it.
+5. Use "Run now" on the Dashboard to trigger the first catalogue import, then the
+   first stock sync. Watch progress on the Dashboard; details in WooCommerce >
+   Status > Logs (source smokepurer-sync).
+
+== Recommended hosting note ==
+
+WordPress's default WP-Cron is triggered by site traffic and is unreliable for a
+5-minute job. For dependable stock timing, disable WP-Cron and drive Action
+Scheduler from a real system cron:
+
+    define('DISABLE_WP_CRON', true);   // in wp-config.php
+    # then, every minute, hit:
+    # wp action-scheduler run   (WP-CLI)  — or — curl the site's wp-cron.php
+
+== Changelog ==
+
+= 1.0.0 =
+* Initial release.

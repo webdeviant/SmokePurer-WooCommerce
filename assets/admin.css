@@ -1,0 +1,21 @@
+.sps-wrap .sps-table { max-width: 1100px; margin: 12px 0 24px; }
+.sps-wrap .sps-table th, .sps-wrap .sps-table td { vertical-align: middle; }
+.sps-badge {
+	display: inline-block;
+	min-width: 60px;
+	padding: 2px 8px;
+	border-radius: 3px;
+	color: #fff;
+	font-size: 11px;
+	font-weight: 600;
+	text-align: center;
+	text-transform: uppercase;
+	letter-spacing: .02em;
+}
+.sps-progress {
+	padding: 10px 14px;
+	background: #f0f6fc;
+	border-left: 4px solid #2271b1;
+	max-width: 1100px;
+}
+.sps-wrap textarea.code { font-family: Menlo, Consolas, monospace; }
