@@ -9,6 +9,14 @@ Newest versions are listed at the top. Each release follows the same format:
     - Change two.
 
 
+Version 1.0.2
+-------------
+
+- Added an option to import products without categories (products are left
+  unassigned to any category). Toggle "Assign categories" in Settings.
+- Refreshed the README documentation (condensed, with branding).
+
+
 Version 1.0.1
 -------------
 

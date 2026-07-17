@@ -5,7 +5,7 @@ Tested up to: 6.8
 Requires PHP: 8.3
 WC requires at least: 8.0
 WC tested up to: 10.9
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 
 Imports the SmokePurer dropship CSV feeds into WooCommerce products and keeps
@@ -70,6 +70,10 @@ Scheduler from a real system cron:
     # wp action-scheduler run   (WP-CLI)  — or — curl the site's wp-cron.php
 
 == Changelog ==
+
+= 1.0.2 =
+* Added an option to import products without categories (products are left unassigned).
+* Refreshed the README documentation.
 
 = 1.0.1 =
 * Added image download throttling and retry with exponential backoff to avoid supplier rate-limiting during large image imports.

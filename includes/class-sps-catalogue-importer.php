@@ -394,6 +394,10 @@ class SPS_Catalogue_Importer {
 			$product->save();
 		}
 
+		if ( $is_new ) {
+			self::maybe_clear_category( $product_id );
+		}
+
 		return $is_new ? 'created' : 'updated';
 	}
 
@@ -460,6 +464,10 @@ class SPS_Catalogue_Importer {
 		// Recompute price range / stock status aggregation on the parent.
 		WC_Product_Variable::sync( $parent_id );
 		wc_delete_product_transients( $parent_id );
+
+		if ( $is_new ) {
+			self::maybe_clear_category( $parent_id );
+		}
 
 		return $is_new ? 'created' : 'updated';
 	}
@@ -544,6 +552,10 @@ class SPS_Catalogue_Importer {
 	}
 
 	private static function apply_category( $product, $type ) {
+		// Opt-out: leave products unassigned to any category.
+		if ( ! SPS_Settings::get( 'assign_categories', true ) ) {
+			return;
+		}
 		$term_id = SPS_Categories::term_id_for_type( $type );
 		if ( ! $term_id ) {
 			return;
@@ -555,6 +567,21 @@ class SPS_Catalogue_Importer {
 		if ( ! in_array( $term_id, $existing, true ) ) {
 			$existing[] = $term_id;
 			$product->set_category_ids( $existing );
+		}
+	}
+
+	/**
+	 * When category assignment is disabled, strip the default category that
+	 * WooCommerce auto-assigns to a new product with none, so it is genuinely
+	 * left unassigned. Only applied to newly-created products.
+	 */
+	private static function maybe_clear_category( $product_id ) {
+		if ( $product_id && ! SPS_Settings::get( 'assign_categories', true ) ) {
+			// WooCommerce registers product_cat with a default term, so setting an
+			// empty term list just gets "Uncategorized" re-assigned by core. Delete
+			// the relationship directly so the product is genuinely uncategorised.
+			wp_delete_object_term_relationships( $product_id, 'product_cat' );
+			clean_object_term_cache( $product_id, 'product_cat' );
 		}
 	}
 

@@ -246,7 +246,11 @@ class SPS_Admin {
 				</tr>
 				<tr>
 					<th scope="row">Categories</th>
-					<td><label><input type="checkbox" name="auto_create_categories" value="1" <?php checked( $s['auto_create_categories'] ); ?> /> Auto-create mapped categories that don't exist yet.</label></td>
+					<td>
+						<label><input type="checkbox" name="assign_categories" value="1" <?php checked( $s['assign_categories'] ); ?> /> Assign products to categories.</label>
+						<p class="description">Untick to import products with <strong>no category</strong> (left unassigned). The mapping and fallback below are then ignored.</p>
+						<label><input type="checkbox" name="auto_create_categories" value="1" <?php checked( $s['auto_create_categories'] ); ?> /> Auto-create mapped categories that don't exist yet.</label>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="category_fallback">Fallback category</label></th>
@@ -368,6 +372,7 @@ class SPS_Admin {
 			'image_throttle_ms'      => isset( $in['image_throttle_ms'] ) ? min( 60000, max( 0, (int) $in['image_throttle_ms'] ) ) : 200,
 			'image_retries'          => isset( $in['image_retries'] ) ? min( 10, max( 0, (int) $in['image_retries'] ) ) : 2,
 			'image_retry_backoff_ms' => isset( $in['image_retry_backoff_ms'] ) ? min( 30000, max( 0, (int) $in['image_retry_backoff_ms'] ) ) : 1000,
+			'assign_categories'      => ! empty( $in['assign_categories'] ),
 			'auto_create_categories' => ! empty( $in['auto_create_categories'] ),
 			'category_fallback'      => isset( $in['category_fallback'] ) ? sanitize_text_field( $in['category_fallback'] ) : 'Uncategorised',
 			'category_map'           => isset( $in['category_map'] ) ? $this->text_to_map( $in['category_map'] ) : array(),

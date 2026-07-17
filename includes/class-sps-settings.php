@@ -49,6 +49,7 @@ class SPS_Settings {
 			'image_throttle_ms'       => 200,          // Delay before each image download (rate-limit the supplier).
 			'image_retries'           => 2,            // Retry attempts on a transient image failure.
 			'image_retry_backoff_ms'  => 1000,         // Base backoff between retries (doubles each attempt).
+			'assign_categories'       => true,         // false = import products with NO category (left unassigned).
 			'auto_create_categories'  => true,
 			'seed_stock_on_create'    => true,         // Set initial stock from the feed only when first creating a product.
 
