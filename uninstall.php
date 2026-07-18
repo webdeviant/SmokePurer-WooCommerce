@@ -15,6 +15,7 @@ $options = array(
 	'sps_last_runs',
 	'sps_feed_lastgood',
 	'sps_stock_snapshot',
+	'sps_dead_images',
 	'sps_cat_state',
 	'sps_cat_total',
 	'sps_cat_processed',

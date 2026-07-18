@@ -9,6 +9,19 @@ Newest versions are listed at the top. Each release follows the same format:
     - Change two.
 
 
+Version 1.0.4
+-------------
+
+- Images the supplier serves as 404/Not Found are now parked after one attempt and
+  are no longer re-downloaded or re-logged on every catalogue run (big reduction in
+  wasted requests and log noise). Parked images retry automatically after 30 days.
+- Added a "Retry missing images" button (Dashboard > Maintenance) to clear the
+  parked list and re-pull on demand (e.g. after the supplier fixes the images); the
+  dashboard shows how many images are currently parked.
+- Fixed the image-failure log to report the actual number of attempts (a permanent
+  404 is tried once, not the retry maximum).
+
+
 Version 1.0.3
 -------------
 

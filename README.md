@@ -108,6 +108,7 @@ It handles:
 
 See [`changelog.txt`](changelog.txt) for the full history. Latest highlights:
 
+- **1.0.4** — park the supplier's dead (404) image URLs so they aren't re‑fetched every run; "Retry missing images" button.
 - **1.0.3** — per-field control of what keeps syncing after a product's first import; admin warning if the stock sync stalls.
 - **1.0.2** — option to import without categories; refreshed docs.
 - **1.0.1** — image throttling & backoff; SSRF hardening; PHP 8.3–8.5 verified.

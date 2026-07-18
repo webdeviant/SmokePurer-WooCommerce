@@ -5,7 +5,7 @@ Tested up to: 6.8
 Requires PHP: 8.3
 WC requires at least: 8.0
 WC tested up to: 10.9
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 
 Imports the SmokePurer dropship CSV feeds into WooCommerce products and keeps
@@ -70,6 +70,11 @@ Scheduler from a real system cron:
     # wp action-scheduler run   (WP-CLI)  — or — curl the site's wp-cron.php
 
 == Changelog ==
+
+= 1.0.4 =
+* Images the supplier serves as "not found" (404) are now parked after one attempt and no longer re-downloaded (or re-logged) on every catalogue run - a big reduction in wasted requests and log noise. Parked images are retried automatically after 30 days.
+* Added a "Retry missing images" button (Dashboard > Maintenance) to clear the parked list and re-pull on demand, e.g. after the supplier fixes the images. The dashboard shows how many are currently parked.
+* Fixed the image-failure log line to report the actual number of attempts (a permanent 404 is tried once, not the retry maximum).
 
 = 1.0.3 =
 * Added per-field "keep updating" options that control what continues to sync on a product AFTER its first import (price, name, description, categories, weight, brand, tags, image). New products always import in full; stock always syncs. Default: price/weight/tags keep syncing, presentational content is frozen so your manual edits are preserved.

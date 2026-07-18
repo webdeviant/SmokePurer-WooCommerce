@@ -3,7 +3,7 @@
  * Plugin Name:       SmokePurer Sync for WooCommerce
  * Plugin URI:        https://www.e-liquids.uk/
  * Description:        Imports the SmokePurer dropship CSV feeds into WooCommerce products and keeps stock levels in sync from the 5-minute quantity feed. Dependency-free (uses WooCommerce + Action Scheduler).
- * Version:           1.0.3
+ * Version:           1.0.4
  * Requires at least: 6.4
  * Requires PHP:      8.3
  * Author:            e-liquids.uk
@@ -44,7 +44,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SPS_VERSION', '1.0.3' );
+define( 'SPS_VERSION', '1.0.4' );
 define( 'SPS_PLUGIN_FILE', __FILE__ );
 define( 'SPS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SPS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

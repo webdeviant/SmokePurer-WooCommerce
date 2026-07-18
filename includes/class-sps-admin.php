@@ -13,6 +13,7 @@ class SPS_Admin {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
 		add_action( 'admin_post_sps_save_settings', array( $this, 'handle_save' ) );
 		add_action( 'admin_post_sps_run_now', array( $this, 'handle_run_now' ) );
+		add_action( 'admin_post_sps_retry_images', array( $this, 'handle_retry_images' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'admin_notices', array( $this, 'health_notice' ) );
 	}
@@ -116,6 +117,10 @@ class SPS_Admin {
 	private function render_dashboard() {
 		$runs = SPS_Logger::get_runs();
 
+		if ( isset( $_GET['retried'] ) && 'images' === $_GET['retried'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			echo '<div class="notice notice-success is-dismissible"><p>Cleared the missing-image memory and queued a catalogue import to re-fetch them.</p></div>';
+		}
+
 		echo '<h2>Job status</h2>';
 		echo '<table class="widefat striped sps-table"><thead><tr>';
 		echo '<th>Job</th><th>Last result</th><th>When</th><th>Next run</th><th>Details</th><th></th>';
@@ -174,6 +179,24 @@ class SPS_Admin {
 		if ( $markup <= 0 ) {
 			echo '<div class="notice notice-warning inline"><p><strong>Heads up:</strong> markup is 0% — products would import at the trade (cost) price. Set a markup in Settings before publishing.</p></div>';
 		}
+
+		$dead = SPS_Images::dead_count();
+		echo '<h2>Maintenance</h2>';
+		echo '<p class="description">';
+		if ( $dead > 0 ) {
+			printf(
+				'%s image(s) could not be downloaded (usually the supplier is missing the image) and are parked so they are not re-fetched every run. ',
+				esc_html( number_format_i18n( $dead ) )
+			);
+		} else {
+			echo 'No missing images are currently parked. ';
+		}
+		echo 'Parked images are retried automatically after 30 days. To retry now (e.g. once the supplier has fixed them), clear the memory and re-run the catalogue import:';
+		echo '</p>';
+		printf(
+			'<p><a href="%s" class="button button-secondary">Retry missing images</a></p>',
+			esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sps_retry_images' ), 'sps_retry_images' ) )
+		);
 
 		echo '<p class="description">Detailed logs: <strong>WooCommerce → Status → Logs</strong> (source <code>smokepurer-sync</code>). Scheduled runs: <strong>WooCommerce → Status → Scheduled Actions</strong> (group <code>smokepurer-sync</code>).</p>';
 	}
@@ -486,6 +509,25 @@ class SPS_Admin {
 		}
 
 		wp_safe_redirect( add_query_arg( array( 'page' => 'smokepurer-sync', 'tab' => 'dashboard', 'queued' => $job ), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	public function handle_retry_images() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( 'Insufficient permissions.' );
+		}
+		check_admin_referer( 'sps_retry_images' );
+
+		// Forget the parked-dead images and re-run the catalogue import so it
+		// re-attempts them (in case the supplier has since fixed the URLs).
+		SPS_Images::clear_dead();
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( SPS_HOOK_CATALOGUE, array(), 'smokepurer-sync' );
+		} else {
+			do_action( SPS_HOOK_CATALOGUE );
+		}
+
+		wp_safe_redirect( add_query_arg( array( 'page' => 'smokepurer-sync', 'tab' => 'dashboard', 'retried' => 'images' ), admin_url( 'admin.php' ) ) );
 		exit;
 	}
 
